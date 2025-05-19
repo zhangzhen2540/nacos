@@ -13,64 +13,70 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacos.config.server.utils;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.context.web.WebAppConfiguration;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.alibaba.nacos.config.server.utils.SimpleReadWriteLock;
-
-@RunWith(SpringJUnit4ClassRunner.class)
-@WebAppConfiguration
-public class SimpleReadWriteLockTest {
-
+@ExtendWith(SpringExtension.class)
+class SimpleReadWriteLockTest {
+    
     @Test
-    public void test_双重读锁_全部释放_加写锁() {
+    void testDoubleReadLockByAllReleaseAndWriteLock() {
         SimpleReadWriteLock lock = new SimpleReadWriteLock();
-        assertEquals(true, lock.tryReadLock());
-        assertEquals(true, lock.tryReadLock());
-
+        assertTrue(lock.tryReadLock());
+        assertTrue(lock.tryReadLock());
+        
         lock.releaseReadLock();
         lock.releaseReadLock();
-
-        assertEquals(true, lock.tryWriteLock());
+        
+        assertTrue(lock.tryWriteLock());
     }
-
+    
     @Test
-    public void test_加写锁() {
+    void testAddWriteLock() {
         SimpleReadWriteLock lock = new SimpleReadWriteLock();
-        assertEquals(true, lock.tryWriteLock());
+        assertTrue(lock.tryWriteLock());
         lock.releaseWriteLock();
     }
-
+    
     @Test
-    public void test_双重写锁() {
+    void testDoubleWriteLock() {
         SimpleReadWriteLock lock = new SimpleReadWriteLock();
-
-        assertEquals(true, lock.tryWriteLock());
-        assertEquals(false, lock.tryWriteLock());
+        
+        assertTrue(lock.tryWriteLock());
+        assertFalse(lock.tryWriteLock());
     }
-
+    
     @Test
-    public void test_先读锁后写锁() {
+    void testFirstReadLockThenWriteLock() {
         SimpleReadWriteLock lock = new SimpleReadWriteLock();
-
-        assertEquals(true, lock.tryReadLock());
-        assertEquals(false, lock.tryWriteLock());
+        
+        assertTrue(lock.tryReadLock());
+        assertFalse(lock.tryWriteLock());
     }
-
+    
     @Test
-    public void test_双重读锁_释放一个_加写锁失败() {
+    void testFirstWriteLockThenReadLock() {
         SimpleReadWriteLock lock = new SimpleReadWriteLock();
-        assertEquals(true, lock.tryReadLock());
-        assertEquals(true, lock.tryReadLock());
-
+        
+        assertTrue(lock.tryWriteLock());
+        assertFalse(lock.tryReadLock());
+    }
+    
+    @Test
+    void testDoubleReadLockAndOneReleaseOneFailed() {
+        SimpleReadWriteLock lock = new SimpleReadWriteLock();
+        assertTrue(lock.tryReadLock());
+        assertTrue(lock.tryReadLock());
+        
         lock.releaseReadLock();
-
-        assertEquals(false, lock.tryWriteLock());
+        
+        assertFalse(lock.tryWriteLock());
     }
 }

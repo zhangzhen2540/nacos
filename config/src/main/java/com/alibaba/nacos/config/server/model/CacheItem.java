@@ -13,115 +13,119 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacos.config.server.model;
 
-import com.alibaba.nacos.config.server.constant.Constants;
 import com.alibaba.nacos.config.server.utils.SimpleReadWriteLock;
-import com.alibaba.nacos.config.server.utils.SingletonRepository.DataIdGroupIdCache;
+import com.alibaba.nacos.core.utils.StringPool;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * cache item
+ * Cache item.
  *
  * @author Nacos
  */
 public class CacheItem {
 
+    final String groupKey;
+
+    public String type;
+
+    ConfigCache configCache = ConfigCacheFactoryDelegate.getInstance().createConfigCache();
+
+    /**
+     * Use for gray.
+     */
+    private volatile Map<String, ConfigCacheGray> configCacheGray = null;
+
+    List<ConfigCacheGray> sortedConfigCacheGrayList = null;
+
+    private final SimpleReadWriteLock rwLock = new SimpleReadWriteLock();
+
+    public CacheItem(String groupKey, String encryptedDataKey) {
+        this.groupKey = StringPool.get(groupKey);
+        this.getConfigCache().setEncryptedDataKey(encryptedDataKey);
+    }
+
     public CacheItem(String groupKey) {
-        this.groupKey = DataIdGroupIdCache.getSingleton(groupKey);
+        this.groupKey = StringPool.get(groupKey);
     }
 
-    public String getMd5() {
-        return md5;
-    }
-
-    public void setMd5(String md5) {
-        this.md5 = md5;
-    }
-
-    public long getLastModifiedTs() {
-        return lastModifiedTs;
-    }
-
-    public void setLastModifiedTs(long lastModifiedTs) {
-        this.lastModifiedTs = lastModifiedTs;
-    }
-
-    public boolean isBeta() {
-        return isBeta;
-    }
-
-    public void setBeta(boolean isBeta) {
-        this.isBeta = isBeta;
-    }
-
-    public String getMd54Beta() {
-        return md54Beta;
-    }
-
-    public void setMd54Beta(String md54Beta) {
-        this.md54Beta = md54Beta;
-    }
-
-    public List<String> getIps4Beta() {
-        return ips4Beta;
-    }
-
-    public void setIps4Beta(List<String> ips4Beta) {
-        this.ips4Beta = ips4Beta;
-    }
-
-    public long getLastModifiedTs4Beta() {
-        return lastModifiedTs4Beta;
-    }
-
-    public void setLastModifiedTs4Beta(long lastModifiedTs4Beta) {
-        this.lastModifiedTs4Beta = lastModifiedTs4Beta;
+    public ConfigCache getConfigCache() {
+        return configCache;
     }
 
     public SimpleReadWriteLock getRwLock() {
         return rwLock;
     }
 
-    public void setRwLock(SimpleReadWriteLock rwLock) {
-        this.rwLock = rwLock;
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
     public String getGroupKey() {
         return groupKey;
     }
 
-    public Map<String, String> getTagMd5() {
-        return tagMd5;
+    /**
+     * init config gray if empty.
+     */
+    public void initConfigGrayIfEmpty() {
+        if (this.configCacheGray == null) {
+            this.configCacheGray = new HashMap<>(4);
+        }
     }
-
-    public Map<String, Long> getTagLastModifiedTs() {
-        return tagLastModifiedTs;
-    }
-
-    public void setTagMd5(Map<String, String> tagMd5) {
-        this.tagMd5 = tagMd5;
-    }
-
-    public void setTagLastModifiedTs(Map<String, Long> tagLastModifiedTs) {
-        this.tagLastModifiedTs = tagLastModifiedTs;
-    }
-
-    final String groupKey;
-    public volatile String md5 = Constants.NULL;
-    public volatile long lastModifiedTs;
 
     /**
-     * use for beta
+     * init config gray if empty.
+     *
+     * @param grayName gray name.
      */
-    public volatile boolean isBeta = false;
-    public volatile String md54Beta = Constants.NULL;
-    public volatile List<String> ips4Beta;
-    public volatile long lastModifiedTs4Beta;
-    public volatile Map<String, String> tagMd5;
-    public volatile Map<String, Long> tagLastModifiedTs;
-    public SimpleReadWriteLock rwLock = new SimpleReadWriteLock();
+    public void initConfigGrayIfEmpty(String grayName) {
+        initConfigGrayIfEmpty();
+        if (!this.configCacheGray.containsKey(grayName)) {
+            this.configCacheGray.put(grayName, ConfigCacheFactoryDelegate.getInstance().createConfigCacheGray(grayName));
+        }
+    }
+
+    public List<ConfigCacheGray> getSortConfigGrays() {
+        return sortedConfigCacheGrayList;
+    }
+
+    /**
+     * sort config gray.
+     */
+    public void sortConfigGray() {
+        if (configCacheGray == null || configCacheGray.isEmpty()) {
+            sortedConfigCacheGrayList = null;
+            return;
+        }
+
+        sortedConfigCacheGrayList = configCacheGray.values().stream().sorted((o1, o2) -> {
+            if (o1.getPriority() != o2.getPriority()) {
+                return Integer.compare(o1.getPriority(), o2.getPriority()) * -1;
+            } else {
+                return o1.getGrayName().compareTo(o2.getGrayName());
+            }
+
+        }).collect(Collectors.toList());
+    }
+
+    public Map<String, ConfigCacheGray> getConfigCacheGray() {
+        return configCacheGray;
+    }
+
+    public void clearConfigGrays() {
+        this.configCacheGray = null;
+        this.sortedConfigCacheGrayList = null;
+    }
 
 }

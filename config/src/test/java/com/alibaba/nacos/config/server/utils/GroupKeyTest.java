@@ -13,55 +13,184 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.alibaba.nacos.config.server.utils;
 
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.web.WebAppConfiguration;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@WebAppConfiguration
-public class GroupKeyTest {
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
+@ExtendWith(SpringExtension.class)
+@WebAppConfiguration
+class GroupKeyTest {
+    
     @Test
-    public void test_parseGroupKey_非法的() {
+    void testParseInvalidGroupKey() {
         String key = "11111+222+333333+444";
         try {
-            GroupKey2.parseKey(key);
-            Assert.fail();
+            GroupKey.parseKey(key);
+            fail();
         } catch (IllegalArgumentException e) {
             System.out.println(e.toString());
         }
-
+        
         key = "11111+";
         try {
-            GroupKey2.parseKey(key);
-            Assert.fail();
+            GroupKey.parseKey(key);
+            fail();
         } catch (IllegalArgumentException e) {
             System.out.println(e.toString());
         }
-
+        
         key = "11111%29+222";
         try {
-            GroupKey2.parseKey(key);
-            Assert.fail();
+            GroupKey.parseKey(key);
+            fail();
         } catch (IllegalArgumentException e) {
             System.out.println(e.toString());
         }
-
+        
         key = "11111%2b+222";
         try {
-            GroupKey2.parseKey(key);
-            Assert.fail();
+            GroupKey.parseKey(key);
+            fail();
         } catch (IllegalArgumentException e) {
             System.out.println(e.toString());
         }
-
+        
         key = "11111%25+222";
-        String[] pair = GroupKey2.parseKey(key);
-        Assert.assertEquals("11111%", pair[0]);
-        Assert.assertEquals("222", pair[1]);
+        String[] pair = GroupKey.parseKey(key);
+        assertEquals("11111%", pair[0]);
+        assertEquals("222", pair[1]);
     }
+    
+    @Test
+    void testGetKeyByThreeParams() {
+        
+        // Act
+        final String actual = GroupKey.getKey(",", ",", "3");
+        
+        // Assert result
+        assertEquals(",+,+3", actual);
+    }
+    
+    @Test
+    void testGetKeyByTwoParams() {
+        
+        // Act
+        final String actual = GroupKey.getKey("3", "'");
+        
+        // Assert result
+        assertEquals("3+'", actual);
+    }
+    
+    @Test
+    void testGetKeyTenantByPlusThreeParams() {
+        
+        // Act
+        final String actual = GroupKey.getKeyTenant("3", "1", ",");
+        
+        // Assert result
+        assertEquals("3+1+,", actual);
+    }
+    
+    @Test
+    void testGetKeyTenantByPercentThreeParams() {
+        
+        // Act
+        final String actual = GroupKey.getKeyTenant("\u0000\u0000", "%+", null);
+        
+        // Assert result
+        assertEquals("\u0000\u0000+%25%2B", actual);
+    }
+    
+    @Test
+    void testParseKeyBySingleCharacter() {
+        
+        // Act
+        final String[] actual = GroupKey.parseKey("/");
+        
+        // Assert result
+        assertArrayEquals(new String[] {null, "/", null}, actual);
+    }
+    
+    @Test
+    void testParseKeyForPlusIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            GroupKey.parseKey("+");
+            
+            // Method is not expected to return due to exception thrown
+        });
+        
+        // Method is not expected to return due to exception thrown
+    }
+    
+    @Test
+    void testParseKeyForPercentIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            GroupKey.parseKey("%%%5\u0000??????????????");
+            
+            // Method is not expected to return due to exception thrown
+        });
+        
+        // Method is not expected to return due to exception thrown
+    }
+    
+    @Test
+    void testParseKeyForInvalidStringIndexOutOfBoundsException() {
+        assertThrows(StringIndexOutOfBoundsException.class, () -> {
+            GroupKey.parseKey("++%");
+            
+            // Method is not expected to return due to exception thrown
+        });
+        
+        // Method is not expected to return due to exception thrown
+    }
+    
+    @Test
+    void testUrlEncodePlus() {
+        
+        // Arrange
+        final StringBuilder sb = new StringBuilder("????");
+        
+        // Act
+        GroupKey.urlEncode("+", sb);
+        
+        // Assert side effects
+        assertNotNull(sb);
+        assertEquals("????%2B", sb.toString());
+    }
+    
+    @Test
+    void testUrlEncodeByPercent() {
+        
+        // Arrange
+        final StringBuilder sb = new StringBuilder("??????");
+        
+        // Act
+        GroupKey.urlEncode("%", sb);
+        
+        // Assert side effects
+        assertNotNull(sb);
+        assertEquals("??????%25", sb.toString());
+    }
+    
+    @Test
+    void testUrlEncodeForNullStringBuilder() {
+        assertThrows(NullPointerException.class, () -> {
+            GroupKey.urlEncode("+", null);
+            
+            // Method is not expected to return due to exception thrown
+        });
+        
+        // Method is not expected to return due to exception thrown
+    }
+    
 }
